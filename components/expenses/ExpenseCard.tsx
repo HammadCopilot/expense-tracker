@@ -135,7 +135,7 @@ export function ExpenseCard({ expense }: ExpenseCardProps) {
             </div>
           )}
 
-          {expense.tags.length > 0 && (
+          {expense.tags?.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1">
               {expense.tags.map((tag) => (
                 <span
