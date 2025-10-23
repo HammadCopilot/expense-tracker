@@ -1,0 +1,18 @@
+1) Req Analysis
+	user story
+	test cases against every user story
+2) Project Design 
+	DB Design
+	Overall Architecture
+3) Developemet
+	Boilerplate setup
+	coding
+	use ai to craete openapi specs
+4) Testing
+	unit test cases 
+5) Devops 
+	create dockerfiles for ci cd
+	create github actions for deployements
+6) Monitoring
+	Setup Sentry etc
+
