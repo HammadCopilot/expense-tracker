@@ -58,7 +58,7 @@ export function SignUpForm() {
         router.push('/dashboard')
         router.refresh()
       }
-    } catch (error) {
+    } catch {
       toast.error('Something went wrong. Please try again.')
     } finally {
       setIsLoading(false)

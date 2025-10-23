@@ -33,7 +33,7 @@ export function MonthlyTrendsChart({
     }))
   }, [data])
 
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ value: number; payload: MonthlyTrend & { monthLabel: string } }> }) => {
     if (active && payload && payload.length) {
       return (
         <div className="rounded-lg border bg-background p-3 shadow-md">

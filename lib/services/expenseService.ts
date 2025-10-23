@@ -35,10 +35,10 @@ export class ExpenseService {
       ...(filters?.tags &&
         filters.tags.length > 0 && {
           tags: {
-            hasSome: filters.tags,
-          },
+            hasSome: filters.tags as string[],
+          } as Prisma.StringNullableFilter,
         }),
-    }
+    } as Prisma.ExpenseWhereInput
 
     return await prisma.expense.findMany({
       where,
@@ -81,6 +81,7 @@ export class ExpenseService {
       data: {
         ...data,
         amount: new Prisma.Decimal(data.amount),
+        tags: data.tags ? data.tags.join(',') : null,
       },
       include: {
         category: true,
@@ -116,8 +117,12 @@ export class ExpenseService {
     return await prisma.expense.update({
       where: { id },
       data: {
-        ...data,
         ...(data.amount && { amount: new Prisma.Decimal(data.amount) }),
+        ...(data.categoryId && { categoryId: data.categoryId }),
+        ...(data.expenseDate && { expenseDate: data.expenseDate }),
+        ...(data.description !== undefined && { description: data.description }),
+        ...(data.location !== undefined && { location: data.location }),
+        ...(data.tags && { tags: data.tags.join(',') }),
       },
       include: {
         category: true,

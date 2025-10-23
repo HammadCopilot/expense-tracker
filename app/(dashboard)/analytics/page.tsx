@@ -185,7 +185,7 @@ export default function AnalyticsPage() {
                 </div>
               ) : (
                 <div className="h-[400px]">
-                  <Tabs value={categoryChartType} onValueChange={(v) => setCategoryChartType(v as any)}>
+                  <Tabs value={categoryChartType} onValueChange={(v) => setCategoryChartType(v as 'pie' | 'donut' | 'bar')}>
                     <TabsList className="mb-4">
                       <TabsTrigger value="donut">Donut Chart</TabsTrigger>
                       <TabsTrigger value="pie">Pie Chart</TabsTrigger>

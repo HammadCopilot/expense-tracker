@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 
@@ -6,7 +6,7 @@ import { auth } from '@/lib/auth'
  * GET /api/categories
  * Fetch all categories for the authenticated user (including default categories)
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await auth()
     if (!session?.user?.id) {

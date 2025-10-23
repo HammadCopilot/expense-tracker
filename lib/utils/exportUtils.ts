@@ -4,7 +4,7 @@ import { format } from 'date-fns'
  * Export data to CSV file
  */
 export function exportToCSV(
-  data: Record<string, any>[],
+  data: Record<string, unknown>[],
   filename: string = 'export.csv'
 ) {
   if (data.length === 0) {
@@ -56,6 +56,7 @@ export async function exportChartToPNG(
 ) {
   try {
     // Check if html2canvas is available (should be installed separately if needed)
+    //@ts-expect-error - html2canvas is an optional dependency
     const html2canvas = (await import('html2canvas')).default
     
     const element = document.getElementById(elementId)
@@ -70,7 +71,7 @@ export async function exportChartToPNG(
     })
 
     // Convert to blob and download
-    canvas.toBlob((blob) => {
+    canvas.toBlob((blob: Blob | null) => {
       if (!blob) {
         console.error('Failed to create blob')
         return
@@ -94,7 +95,7 @@ export async function exportChartToPNG(
 /**
  * Format analytics data for CSV export
  */
-export function formatMonthlyTrendsForExport(data: any[]) {
+export function formatMonthlyTrendsForExport(data: Array<{ month: string; total: number; count: number }>) {
   return data.map((item) => ({
     Month: format(new Date(item.month + '-01'), 'MMMM yyyy'),
     'Total Spending': `$${item.total.toFixed(2)}`,
@@ -105,7 +106,7 @@ export function formatMonthlyTrendsForExport(data: any[]) {
 /**
  * Format category breakdown data for CSV export
  */
-export function formatCategoryBreakdownForExport(data: any[]) {
+export function formatCategoryBreakdownForExport(data: Array<{ categoryName: string; total: number; percentage: number; count: number }>) {
   return data.map((item) => ({
     Category: item.categoryName,
     'Total Spending': `$${item.total.toFixed(2)}`,

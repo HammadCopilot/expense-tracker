@@ -148,7 +148,7 @@ export function CategoryBreakdownChart({
           verticalAlign="bottom"
           height={36}
           formatter={(value, entry: any) =>
-            `${entry.payload.categoryName}: ${formatCurrency(entry.payload.total)}`
+            `${entry?.payload?.categoryName}: ${formatCurrency(entry?.payload?.total || 0)}`
           }
         />
       </PieChart>

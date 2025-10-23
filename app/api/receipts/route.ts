@@ -64,18 +64,15 @@ export async function POST(request: NextRequest) {
 
     // Upload file
     let fileUrl: string
-    let fileKey: string
 
     if (process.env.NODE_ENV === 'production' && process.env.S3_BUCKET_NAME) {
       // Upload to S3 in production
       const result = await UploadService.uploadReceipt(file, expenseId)
       fileUrl = result.url
-      fileKey = result.key
     } else {
       // For development, use local storage or placeholder
       const result = await UploadService.uploadLocal(file, expenseId)
       fileUrl = result.url
-      fileKey = result.key
     }
 
     // Save receipt metadata to database
