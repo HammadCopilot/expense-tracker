@@ -1,0 +1,953 @@
+openapi: 3.1.0
+info:
+  title: Expense Tracker API
+  description: |
+    AI-Powered Expense Tracker API built with Next.js 14, TypeScript, PostgreSQL, and Prisma ORM.
+    
+    This API provides comprehensive expense management capabilities including:
+    - User authentication and management
+    - Expense CRUD operations with filtering and search
+    - Category management with custom and default categories
+    - Receipt upload and management
+    - Analytics and reporting with category breakdowns and monthly trends
+    
+    ## Authentication
+    All endpoints (except signup) require authentication via NextAuth.js session cookies.
+    
+    ## Rate Limiting
+    API requests are rate-limited to prevent abuse. Please implement appropriate retry logic with exponential backoff.
+    
+    ## Error Handling
+    The API uses standard HTTP status codes and returns consistent error responses with detailed messages.
+  version: 1.0.0
+  contact:
+    name: Expense Tracker Support
+    email: support@expensetracker.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000/api
+    description: Development server
+  - url: https://expense-tracker.vercel.app/api
+    description: Production server
+
+security:
+  - sessionAuth: []
+
+paths:
+  # Authentication Endpoints
+  /auth/signup:
+    post:
+      tags:
+        - Authentication
+      summary: Create a new user account
+      description: |
+        Register a new user account with email and password. 
+        Creates default expense categories for the new user.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignUpRequest'
+            examples:
+              valid_signup:
+                summary: Valid signup request
+                value:
+                  name: "John Doe"
+                  email: "john@example.com"
+                  password: "SecurePass123"
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignUpResponse'
+              example:
+                message: "User created successfully"
+                user:
+                  id: "clx1234567890"
+                  email: "john@example.com"
+                  name: "John Doe"
+                  createdAt: "2024-01-15T10:30:00.000Z"
+        '400':
+          description: Validation error or user already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                validation_error:
+                  summary: Validation failed
+                  value:
+                    error: "Validation failed"
+                    details:
+                      - field: "email"
+                        message: "Invalid email address"
+                user_exists:
+                  summary: User already exists
+                  value:
+                    error: "User with this email already exists"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/[...nextauth]:
+    get:
+      tags:
+        - Authentication
+      summary: Get current session
+      description: Returns the current authenticated user session
+      responses:
+        '200':
+          description: Session information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+        - Authentication
+      summary: Sign in user
+      description: Authenticate user with email and password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  # Expense Management Endpoints
+  /expenses:
+    get:
+      tags:
+        - Expenses
+      summary: Get user expenses with optional filters
+      description: |
+        Retrieve all expenses for the authenticated user with optional filtering by:
+        - Date range (startDate, endDate)
+        - Category (categoryId)
+        - Amount range (minAmount, maxAmount)
+      parameters:
+        - name: startDate
+          in: query
+          description: Start date for filtering (ISO 8601 format)
+          required: false
+          schema:
+            type: string
+            format: date
+          example: "2024-01-01"
+        - name: endDate
+          in: query
+          description: End date for filtering (ISO 8601 format)
+          required: false
+          schema:
+            type: string
+            format: date
+          example: "2024-01-31"
+        - name: categoryId
+          in: query
+          description: Filter by category ID
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: minAmount
+          in: query
+          description: Minimum amount filter
+          required: false
+          schema:
+            type: number
+            minimum: 0
+        - name: maxAmount
+          in: query
+          description: Maximum amount filter
+          required: false
+          schema:
+            type: number
+            minimum: 0
+      responses:
+        '200':
+          description: List of expenses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Expense'
+              example:
+                - id: "clx1234567890"
+                  amount: 25.50
+                  description: "Lunch at restaurant"
+                  location: "Downtown"
+                  tags: ["food", "lunch"]
+                  expenseDate: "2024-01-15T12:30:00.000Z"
+                  createdAt: "2024-01-15T12:35:00.000Z"
+                  updatedAt: "2024-01-15T12:35:00.000Z"
+                  category:
+                    id: "clx9876543210"
+                    name: "Food & Dining"
+                    icon: "🍔"
+                    color: "#f59e0b"
+                    isDefault: true
+                  receipts:
+                    - id: "clx1111111111"
+                      fileName: "receipt.jpg"
+                      fileUrl: "https://example.com/receipts/receipt.jpg"
+                      fileSize: 1024000
+                      mimeType: "image/jpeg"
+                      createdAt: "2024-01-15T12:40:00.000Z"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Expenses
+      summary: Create a new expense
+      description: Create a new expense for the authenticated user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpenseRequest'
+            examples:
+              basic_expense:
+                summary: Basic expense
+                value:
+                  amount: 25.50
+                  categoryId: "clx9876543210"
+                  expenseDate: "2024-01-15T12:30:00.000Z"
+                  description: "Lunch at restaurant"
+              detailed_expense:
+                summary: Detailed expense with location and tags
+                value:
+                  amount: 150.00
+                  categoryId: "clx9876543210"
+                  expenseDate: "2024-01-15T12:30:00.000Z"
+                  description: "Grocery shopping"
+                  location: "Whole Foods Market"
+                  tags: ["groceries", "food", "organic"]
+      responses:
+        '201':
+          description: Expense created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expense'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /expenses/{id}:
+    get:
+      tags:
+        - Expenses
+      summary: Get a specific expense
+      description: Retrieve a single expense by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Expense ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Expense details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expense'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Expense not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - Expenses
+      summary: Update an expense
+      description: Update an existing expense (partial update supported)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Expense ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateExpenseRequest'
+            examples:
+              update_amount:
+                summary: Update amount only
+                value:
+                  amount: 30.00
+              update_category:
+                summary: Update category
+                value:
+                  categoryId: "clx9876543210"
+              update_multiple:
+                summary: Update multiple fields
+                value:
+                  amount: 35.00
+                  description: "Updated description"
+                  location: "New location"
+      responses:
+        '200':
+          description: Expense updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expense'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Expense not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - Expenses
+      summary: Delete an expense
+      description: Permanently delete an expense and all associated receipts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Expense ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Expense deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Expense deleted successfully"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Expense not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # Category Management Endpoints
+  /categories:
+    get:
+      tags:
+        - Categories
+      summary: Get user categories
+      description: |
+        Retrieve all categories available to the user, including:
+        - Default system categories (Food & Dining, Transportation, etc.)
+        - User-created custom categories
+        Categories are ordered with default categories first, then custom categories alphabetically.
+      responses:
+        '200':
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Category'
+              example:
+                - id: "clx9876543210"
+                  name: "Food & Dining"
+                  icon: "🍔"
+                  color: "#f59e0b"
+                  isDefault: true
+                  userId: null
+                  createdAt: "2024-01-01T00:00:00.000Z"
+                - id: "clx1111111111"
+                  name: "My Custom Category"
+                  icon: "🎯"
+                  color: "#8b5cf6"
+                  isDefault: false
+                  userId: "clx1234567890"
+                  createdAt: "2024-01-15T10:30:00.000Z"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # Receipt Management Endpoints
+  /receipts:
+    post:
+      tags:
+        - Receipts
+      summary: Upload a receipt
+      description: |
+        Upload a receipt file for an expense. Supports JPEG, PNG, and PDF files up to 5MB.
+        Files are stored in S3 (production) or local storage (development).
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - expenseId
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Receipt file (JPEG, PNG, or PDF, max 5MB)
+                expenseId:
+                  type: string
+                  format: uuid
+                  description: ID of the expense to attach the receipt to
+      responses:
+        '201':
+          description: Receipt uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Receipt'
+              example:
+                id: "clx1111111111"
+                expenseId: "clx1234567890"
+                fileName: "receipt.jpg"
+                fileUrl: "https://example.com/receipts/receipt.jpg"
+                fileSize: 1024000
+                mimeType: "image/jpeg"
+                createdAt: "2024-01-15T12:40:00.000Z"
+        '400':
+          description: Invalid file or missing expense ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                no_file:
+                  summary: No file provided
+                  value:
+                    error: "No file provided"
+                no_expense_id:
+                  summary: Missing expense ID
+                  value:
+                    error: "Expense ID required"
+                invalid_file_type:
+                  summary: Invalid file type
+                  value:
+                    error: "Invalid file type. Only JPEG, PNG, and PDF are allowed."
+                file_too_large:
+                  summary: File too large
+                  value:
+                    error: "File size exceeds 5MB limit"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Expense not found or unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /receipts/{id}:
+    delete:
+      tags:
+        - Receipts
+      summary: Delete a receipt
+      description: |
+        Delete a receipt and remove the file from storage.
+        Only the owner of the associated expense can delete receipts.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Receipt ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Receipt deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Receipt deleted successfully"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Not authorized to delete this receipt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Receipt not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+
+components:
+  securitySchemes:
+    sessionAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Session-based authentication using NextAuth.js.
+        Include the session cookie in requests for authenticated endpoints.
+
+  schemas:
+    # Authentication Schemas
+    SignUpRequest:
+      type: object
+      required:
+        - name
+        - email
+        - password
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          description: User's full name
+          example: "John Doe"
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "john@example.com"
+        password:
+          type: string
+          minLength: 8
+          pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$'
+          description: Password with at least 8 characters, one uppercase, one lowercase, and one number
+          example: "SecurePass123"
+
+    SignUpResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "User created successfully"
+        user:
+          $ref: '#/components/schemas/User'
+
+    SignInRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: "john@example.com"
+        password:
+          type: string
+          example: "SecurePass123"
+
+    Session:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        expires:
+          type: string
+          format: date-time
+          example: "2024-02-15T10:30:00.000Z"
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "clx1234567890"
+        email:
+          type: string
+          format: email
+          example: "john@example.com"
+        name:
+          type: string
+          example: "John Doe"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00.000Z"
+
+    # Expense Schemas
+    ExpenseRequest:
+      type: object
+      required:
+        - amount
+        - categoryId
+        - expenseDate
+      properties:
+        amount:
+          type: number
+          minimum: 0.01
+          maximum: 999999.99
+          description: Expense amount
+          example: 25.50
+        categoryId:
+          type: string
+          format: uuid
+          description: Category ID
+          example: "clx9876543210"
+        expenseDate:
+          type: string
+          format: date-time
+          description: Date and time of the expense
+          example: "2024-01-15T12:30:00.000Z"
+        description:
+          type: string
+          maxLength: 500
+          description: Optional description
+          example: "Lunch at restaurant"
+        location:
+          type: string
+          maxLength: 200
+          description: Optional location
+          example: "Downtown"
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 10
+          description: Optional tags
+          example: ["food", "lunch"]
+
+    UpdateExpenseRequest:
+      type: object
+      properties:
+        amount:
+          type: number
+          minimum: 0.01
+          maximum: 999999.99
+        categoryId:
+          type: string
+          format: uuid
+        expenseDate:
+          type: string
+          format: date-time
+        description:
+          type: string
+          maxLength: 500
+        location:
+          type: string
+          maxLength: 200
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 10
+
+    Expense:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "clx1234567890"
+        amount:
+          type: number
+          example: 25.50
+        description:
+          type: string
+          nullable: true
+          example: "Lunch at restaurant"
+        location:
+          type: string
+          nullable: true
+          example: "Downtown"
+        tags:
+          type: array
+          items:
+            type: string
+          nullable: true
+          example: ["food", "lunch"]
+        expenseDate:
+          type: string
+          format: date-time
+          example: "2024-01-15T12:30:00.000Z"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T12:35:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T12:35:00.000Z"
+        category:
+          $ref: '#/components/schemas/Category'
+        receipts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Receipt'
+
+    # Category Schemas
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "clx9876543210"
+        name:
+          type: string
+          example: "Food & Dining"
+        icon:
+          type: string
+          nullable: true
+          example: "🍔"
+        color:
+          type: string
+          nullable: true
+          pattern: '^#[0-9A-F]{6}$'
+          example: "#f59e0b"
+        isDefault:
+          type: boolean
+          description: Whether this is a default system category
+          example: true
+        userId:
+          type: string
+          format: uuid
+          nullable: true
+          description: User ID for custom categories (null for default categories)
+          example: "clx1234567890"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00.000Z"
+
+    # Receipt Schemas
+    Receipt:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "clx1111111111"
+        expenseId:
+          type: string
+          format: uuid
+          example: "clx1234567890"
+        fileName:
+          type: string
+          example: "receipt.jpg"
+        fileUrl:
+          type: string
+          format: uri
+          example: "https://example.com/receipts/receipt.jpg"
+        fileSize:
+          type: integer
+          description: File size in bytes
+          example: 1024000
+        mimeType:
+          type: string
+          example: "image/jpeg"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T12:40:00.000Z"
+
+    # Analytics Schemas
+    CategoryBreakdownResponse:
+      type: object
+      properties:
+        categories:
+          type: array
+          items:
+            type: object
+            properties:
+              categoryId:
+                type: string
+                format: uuid
+                example: "clx9876543210"
+              categoryName:
+                type: string
+                example: "Food & Dining"
+              totalAmount:
+                type: number
+                example: 450.00
+              percentage:
+                type: number
+                example: 45.0
+              transactionCount:
+                type: integer
+                example: 12
+        totalAmount:
+          type: number
+          example: 1000.00
+        range:
+          type: integer
+          example: 1
+        startDate:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00.000Z"
+        endDate:
+          type: string
+          format: date-time
+          example: "2024-01-31T23:59:59.999Z"
+
+    MonthlyTrendsResponse:
+      type: object
+      properties:
+        trends:
+          type: array
+          items:
+            type: object
+            properties:
+              month:
+                type: string
+                pattern: '^\d{4}-\d{2}$'
+                example: "2024-01"
+              totalAmount:
+                type: number
+                example: 1000.00
+              transactionCount:
+                type: integer
+                example: 25
+              averageAmount:
+                type: number
+                example: 40.00
+        range:
+          type: integer
+          example: 6
+        startDate:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00.000Z"
+        endDate:
+          type: string
+          format: date-time
+          example: "2024-06-30T23:59:59.999Z"
+
+    # Error Schemas
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "Validation failed"
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: "email"
+              message:
+                type: string
+                example: "Invalid email address"
+          description: Detailed validation errors (only for validation errors)
+
+  responses:
+    UnauthorizedError:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Unauthorized"
+
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Validation failed"
+            details:
+              - field: "amount"
+                message: "Amount must be positive"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Internal server error"
+
+tags:
+  - name: Authentication
+    description: User authentication and account management
+  - name: Expenses
+    description: Expense CRUD operations and management
+  - name: Categories
+    description: Category management and retrieval
+  - name: Receipts
+    description: Receipt upload and management
+  - name: Analytics
+    description: Analytics and reporting endpoints
