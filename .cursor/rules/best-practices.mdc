@@ -1,0 +1,645 @@
+---
+alwaysApply: true
+AI-Powered Expense Tracker - Cursor Rules
+---
+
+
+## Project Overview
+This is an AI-Powered Expense Tracker POC demonstrating AI-assisted SDLC. Built with Next.js 14 (App Router), TypeScript, PostgreSQL, and Prisma ORM.
+
+## Technology Stack
+
+### Frontend
+- **Framework**: Next.js 14 (App Router)
+- **Language**: TypeScript 5.x
+- **UI Library**: React 18
+- **Components**: Shadcn UI (Radix UI primitives)
+- **Styling**: TailwindCSS 3.x
+- **Icons**: Lucide React
+- **Forms**: React Hook Form + Zod validation
+- **Charts**: Recharts / Chart.js
+- **Date Handling**: date-fns
+
+### State Management
+- **Global State**: Zustand
+- **Server State**: TanStack Query (React Query)
+- **Form State**: React Hook Form
+
+### Backend
+- **API**: Next.js API Routes (App Router)
+- **Auth**: NextAuth.js v5 (Auth.js)
+- **Validation**: Zod schemas
+- **Database**: PostgreSQL 15+
+- **ORM**: Prisma 5.x
+
+### Storage
+- **Cloud**: AWS S3 (production)
+- **Local**: MinIO (development)
+
+## Code Style & Conventions
+
+### General Rules
+- Use TypeScript for all files (.ts, .tsx)
+- Enable strict mode in TypeScript
+- Use functional components with hooks (no class components)
+- Prefer named exports over default exports (except for pages/layouts)
+- Use arrow functions for consistency
+- Always add JSDoc comments for complex functions
+
+### Naming Conventions
+- **Components**: PascalCase (e.g., `ExpenseCard.tsx`)
+- **Hooks**: camelCase with `use` prefix (e.g., `useExpenses.ts`)
+- **Utilities**: camelCase (e.g., `formatters.ts`)
+- **API Routes**: kebab-case folders with `route.ts` file
+- **Pages**: kebab-case folders with `page.tsx` file
+- **Types/Interfaces**: PascalCase with descriptive names
+- **Constants**: UPPER_SNAKE_CASE
+
+### File Organization
+```typescript
+// 1. External imports
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+
+// 2. Internal imports (grouped)
+import { Button } from '@/components/ui/button';
+import { useExpenses } from '@/hooks/useExpenses';
+import { formatCurrency } from '@/lib/formatters';
+import type { Expense } from '@/types/expense';
+
+// 3. Type definitions
+interface Props {
+  // ...
+}
+
+// 4. Component definition
+export function ComponentName({ }: Props) {
+  // ...
+}
+```
+
+### Import Aliases
+Always use `@/` prefix for cleaner imports:
+```typescript
+import { Button } from '@/components/ui/button';
+import { useExpenses } from '@/hooks/useExpenses';
+import { prisma } from '@/lib/prisma';
+```
+
+## Architecture Patterns
+
+### Route Groups
+- `(auth)/`: Authentication pages with centered layout
+- `(dashboard)/`: Protected dashboard pages with sidebar layout
+
+### Component Structure
+```
+components/
+├── ui/              # Shadcn UI primitives (auto-generated)
+├── auth/            # Authentication components
+├── expenses/        # Expense management components
+├── charts/          # Data visualization components
+├── layouts/         # Layout and navigation
+├── shared/          # Reusable utilities
+└── providers/       # Context providers
+```
+
+### API Route Pattern
+```typescript
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { z } from 'zod';
+import { prisma } from '@/lib/prisma';
+import { authOptions } from '@/lib/auth';
+
+// 1. Define validation schema
+const schema = z.object({
+  // ...
+});
+
+// 2. Export named HTTP methods
+export async function GET(request: NextRequest) {
+  // 2.1 Authenticate
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // 2.2 Process request
+  // 2.3 Return response
+}
+
+export async function POST(request: NextRequest) {
+  // Similar pattern with validation
+  try {
+    const body = await request.json();
+    const validatedData = schema.parse(body);
+    // ...
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: error.errors },
+        { status: 400 }
+      );
+    }
+    // ...
+  }
+}
+```
+
+### Service Layer Pattern
+- Separate business logic from API routes
+- Create service files in `lib/services/`
+- Use static methods for services
+- Handle transactions at service layer
+
+```typescript
+// lib/services/expenseService.ts
+export class ExpenseService {
+  static async getUserExpenses(userId: string, filters?: ExpenseFilters) {
+    return await prisma.expense.findMany({
+      where: { userId, ...filters },
+      include: { category: true, receipts: true },
+      orderBy: { expenseDate: 'desc' },
+    });
+  }
+
+  static async createExpense(data: CreateExpenseInput) {
+    // Business logic here
+  }
+}
+```
+
+## State Management
+
+### Zustand Stores
+Use for client-side UI state:
+```typescript
+// store/userStore.ts
+import { create } from 'zustand';
+
+interface UserState {
+  user: User | null;
+  setUser: (user: User) => void;
+  clearUser: () => void;
+}
+
+export const useUserStore = create<UserState>((set) => ({
+  user: null,
+  setUser: (user) => set({ user }),
+  clearUser: () => set({ user: null }),
+}));
+```
+
+### React Query
+Use for server state management:
+```typescript
+// hooks/useExpenses.ts
+export const useExpenses = (filters?: ExpenseFilters) => {
+  return useQuery({
+    queryKey: ['expenses', filters],
+    queryFn: () => fetchExpenses(filters),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+};
+
+// hooks/useExpenseMutations.ts
+export const useCreateExpense = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createExpense,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+    },
+  });
+};
+```
+
+## Data Validation
+
+### Use Zod for all validation
+- Define schemas in `lib/validations.ts`
+- Reuse schemas between client and server
+- Create typed form schemas with Zod
+
+```typescript
+// lib/validations.ts
+import { z } from 'zod';
+
+export const expenseSchema = z.object({
+  amount: z.number().positive('Amount must be positive'),
+  categoryId: z.string().uuid('Invalid category'),
+  expenseDate: z.string().datetime(),
+  description: z.string().max(500).optional(),
+});
+
+export type ExpenseInput = z.infer<typeof expenseSchema>;
+```
+
+## Database Patterns
+
+### Prisma Best Practices
+- Always use transactions for multi-table operations
+- Include related data with `include` when needed
+- Use `select` to limit fields for large queries
+- Add proper indexes in schema for performance
+
+```typescript
+// Use transactions for complex operations
+await prisma.$transaction([
+  prisma.expense.create({ data: expenseData }),
+  prisma.receipt.createMany({ data: receiptsData }),
+]);
+
+// Use include for relations
+const expense = await prisma.expense.findUnique({
+  where: { id },
+  include: {
+    category: true,
+    receipts: true,
+  },
+});
+
+// Use select to limit fields
+const expenses = await prisma.expense.findMany({
+  select: {
+    id: true,
+    amount: true,
+    expenseDate: true,
+  },
+});
+```
+
+### Database Access Rules
+- NEVER use Prisma directly in components
+- ALWAYS use Prisma in API routes or service layer
+- ALWAYS verify user ownership before operations
+- ALWAYS handle database errors gracefully
+
+## Security Rules
+
+### Authentication
+- Use NextAuth.js for authentication
+- Protect all API routes with session checks
+- Use HTTP-only cookies for sessions
+- Implement CSRF protection (built into Next.js)
+
+```typescript
+// Protect API routes
+const session = await getServerSession(authOptions);
+if (!session?.user?.id) {
+  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+}
+```
+
+### Authorization
+- Always verify user owns the resource
+- Check permissions before mutations
+- Return 403 for forbidden actions
+
+```typescript
+// Verify ownership
+const expense = await prisma.expense.findFirst({
+  where: { id, userId: session.user.id },
+});
+
+if (!expense) {
+  return NextResponse.json(
+    { error: 'Not found or unauthorized' },
+    { status: 404 }
+  );
+}
+```
+
+### Data Validation
+- Validate on client AND server
+- Use Zod schemas for consistency
+- Sanitize user inputs
+- Never trust client data
+
+### File Upload Security
+- Validate file types (whitelist: jpg, png, pdf)
+- Enforce file size limits (5MB max)
+- Generate unique filenames (UUID)
+- Store files in S3, not locally
+
+## Error Handling
+
+### API Error Format
+```typescript
+// Standardized error response
+interface ApiError {
+  error: string;
+  details?: unknown;
+  statusCode: number;
+}
+
+// Usage
+return NextResponse.json(
+  { error: 'Resource not found' },
+  { status: 404 }
+);
+```
+
+### Client Error Handling
+```typescript
+import { toast } from 'sonner';
+
+// In React Query
+const { mutate } = useMutation({
+  mutationFn: createExpense,
+  onSuccess: () => {
+    toast.success('Expense created successfully');
+  },
+  onError: (error) => {
+    toast.error(error.message || 'Failed to create expense');
+  },
+});
+```
+
+### Try-Catch Pattern
+```typescript
+try {
+  // Risky operation
+} catch (error) {
+  if (error instanceof z.ZodError) {
+    return NextResponse.json(
+      { error: 'Validation failed', details: error.errors },
+      { status: 400 }
+    );
+  }
+  
+  console.error('Unexpected error:', error);
+  return NextResponse.json(
+    { error: 'Internal server error' },
+    { status: 500 }
+  );
+}
+```
+
+## UI/UX Guidelines
+
+### Use Shadcn UI Components
+- Install components via CLI: `npx shadcn-ui@latest add [component]`
+- Customize in `components/ui/` as needed
+- Maintain consistency across the app
+
+### Responsive Design
+- Mobile-first approach
+- Use TailwindCSS responsive prefixes (sm:, md:, lg:)
+- Test on multiple screen sizes
+- Implement mobile navigation
+
+### Accessibility
+- Use semantic HTML
+- Add ARIA labels where needed
+- Ensure keyboard navigation works
+- Maintain color contrast ratios
+- Use Shadcn UI components (already accessible)
+
+### Loading States
+- Show skeletons for data loading
+- Disable buttons during mutations
+- Provide feedback for all actions
+- Use React Query loading states
+
+```typescript
+const { data, isLoading, error } = useExpenses();
+
+if (isLoading) return <ExpenseListSkeleton />;
+if (error) return <ErrorMessage error={error} />;
+return <ExpenseList expenses={data} />;
+```
+
+## Performance Optimization
+
+### Code Splitting
+- Use dynamic imports for heavy components
+- Lazy load charts and visualizations
+- Route-based splitting (automatic with Next.js)
+
+```typescript
+import dynamic from 'next/dynamic';
+
+const ExpenseChart = dynamic(() => import('@/components/charts/ExpenseChart'), {
+  loading: () => <ChartSkeleton />,
+  ssr: false,
+});
+```
+
+### Data Fetching
+- Use React Query for caching
+- Implement pagination for large lists
+- Prefetch data when possible
+- Use stale-while-revalidate strategy
+
+### Database Performance
+- Add indexes for frequently queried fields
+- Use database-level aggregations
+- Limit query results with pagination
+- Use connection pooling (Prisma default)
+
+### Image Optimization
+- Use Next.js `<Image>` component
+- Serve images from CDN (S3 + CloudFront)
+- Set proper sizes and formats
+- Lazy load images below the fold
+
+## Testing Guidelines
+
+### Unit Tests
+- Test utility functions
+- Test custom hooks
+- Test service layer logic
+- Use Jest/Vitest
+
+### Integration Tests
+- Test API routes
+- Test database operations
+- Mock external services
+- Use Prisma test environment
+
+### E2E Tests
+- Test critical user flows
+- Use Playwright or Cypress
+- Test authentication flow
+- Test expense CRUD operations
+
+## Environment Variables
+
+### Required Variables
+```env
+DATABASE_URL="postgresql://..."
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="generate-secure-secret"
+AWS_REGION="us-east-1"
+AWS_ACCESS_KEY_ID="your-key"
+AWS_SECRET_ACCESS_KEY="your-secret"
+S3_BUCKET_NAME="expense-tracker-receipts"
+```
+
+### Rules
+- NEVER commit `.env.local` to git
+- Keep `.env.example` updated
+- Use different credentials per environment
+- Validate required env vars at startup
+
+## Git Workflow
+
+### Commit Messages
+Follow conventional commits:
+- `feat:` New feature
+- `fix:` Bug fix
+- `docs:` Documentation changes
+- `style:` Code style changes
+- `refactor:` Code refactoring
+- `test:` Test additions/changes
+- `chore:` Build/tooling changes
+
+Example: `feat: add expense filtering by category`
+
+### Branch Naming
+- `feature/description` - New features
+- `fix/description` - Bug fixes
+- `refactor/description` - Code refactoring
+- `docs/description` - Documentation
+
+### Pre-commit Checks
+- Run linting
+- Run type checking
+- Format code with Prettier
+- Run tests (if applicable)
+
+## Development Commands
+
+```bash
+# Development
+npm run dev              # Start dev server
+npm run db:studio        # Open Prisma Studio
+
+# Database
+npm run db:migrate       # Run migrations
+npm run db:seed          # Seed database
+npm run db:push          # Push schema changes
+
+# Quality
+npm run lint             # Lint code
+npm run typecheck        # Type check
+npm run format           # Format code
+
+# Build
+npm run build            # Build for production
+npm run start            # Start production server
+```
+
+## Code Review Checklist
+
+Before submitting code:
+- [ ] TypeScript types are properly defined
+- [ ] Zod validation on client and server
+- [ ] Error handling implemented
+- [ ] Loading states handled
+- [ ] Authentication checks in place
+- [ ] User authorization verified
+- [ ] Database queries optimized
+- [ ] Components are accessible
+- [ ] Mobile responsive
+- [ ] No console errors/warnings
+- [ ] Code is formatted
+- [ ] Documentation updated if needed
+
+## Common Patterns
+
+### Protected Page
+```typescript
+import { getServerSession } from 'next-auth';
+import { redirect } from 'next/navigation';
+import { authOptions } from '@/lib/auth';
+
+export default async function DashboardPage() {
+  const session = await getServerSession(authOptions);
+  
+  if (!session) {
+    redirect('/login');
+  }
+  
+  return <DashboardContent />;
+}
+```
+
+### Form with Validation
+```typescript
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { expenseSchema } from '@/lib/validations';
+
+export function ExpenseForm() {
+  const form = useForm({
+    resolver: zodResolver(expenseSchema),
+    defaultValues: {
+      amount: 0,
+      categoryId: '',
+      expenseDate: new Date().toISOString(),
+    },
+  });
+  
+  const { mutate, isPending } = useCreateExpense();
+  
+  const onSubmit = form.handleSubmit((data) => {
+    mutate(data);
+  });
+  
+  return <form onSubmit={onSubmit}>...</form>;
+}
+```
+
+### Data Fetching Component
+```typescript
+export function ExpenseList() {
+  const { data: expenses, isLoading, error } = useExpenses();
+  
+  if (isLoading) return <Skeleton />;
+  if (error) return <ErrorMessage />;
+  if (!expenses?.length) return <EmptyState />;
+  
+  return (
+    <div>
+      {expenses.map((expense) => (
+        <ExpenseCard key={expense.id} expense={expense} />
+      ))}
+    </div>
+  );
+}
+```
+
+## AI Integration Guidelines (Future POC Enhancement)
+
+When implementing AI features:
+- Use environment variables for API keys
+- Implement rate limiting
+- Add fallback mechanisms
+- Cache AI responses when possible
+- Handle AI errors gracefully
+- Add loading states for AI operations
+- Document AI model versions used
+
+## Additional Notes
+
+- This is a POC demonstrating AI-assisted SDLC
+- Focus on code quality and best practices
+- Document complex logic and decisions
+- Keep components small and focused (<300 lines)
+- Prioritize user experience and accessibility
+- Follow the existing architecture patterns
+- Update documentation when making architectural changes
+
+## Resources
+
+- [Next.js Docs](https://nextjs.org/docs)
+- [Prisma Docs](https://www.prisma.io/docs)
+- [Shadcn UI](https://ui.shadcn.com)
+- [React Query Docs](https://tanstack.com/query/latest)
+- [Zod Docs](https://zod.dev)
+- [NextAuth.js Docs](https://next-auth.js.org)
+
+

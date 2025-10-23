@@ -1,0 +1,140 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// User Management
+model User {
+  id                 String    @id @default(uuid())
+  email              String    @unique
+  passwordHash       String    @map("password_hash")
+  name               String?
+  profilePictureUrl  String?   @map("profile_picture_url")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  lastLogin          DateTime? @map("last_login")
+
+  // Relations
+  expenses           Expense[]
+  categories         Category[]
+  budgets            Budget[]
+  recurringExpenses  RecurringExpense[]
+
+  @@map("users")
+}
+
+// Expense Categories
+model Category {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  name        String
+  description String?
+  icon        String?   // Emoji or icon identifier
+  color       String?   // Hex color code
+  isDefault   Boolean   @default(false) @map("is_default")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenses    Expense[]
+  budgets     Budget[]
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("categories")
+}
+
+// Expenses
+model Expense {
+  id           String    @id @default(uuid())
+  userId       String    @map("user_id")
+  categoryId   String    @map("category_id")
+  amount       Decimal   @db.Decimal(10, 2)
+  description  String?   @db.Text
+  expenseDate  DateTime  @map("expense_date")
+  location     String?
+  tags         String?   @db.Text
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category     Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  receipts     Receipt[]
+
+  @@index([userId])
+  @@index([categoryId])
+  @@index([expenseDate])
+  @@map("expenses")
+}
+
+// Receipt Attachments
+model Receipt {
+  id         String   @id @default(uuid())
+  expenseId  String   @map("expense_id")
+  fileName   String   @map("file_name")
+  fileUrl    String   @map("file_url")
+  fileSize   Int      @map("file_size") // in bytes
+  mimeType   String   @map("mime_type")
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+
+  // Relations
+  expense    Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  @@index([expenseId])
+  @@map("receipts")
+}
+
+// Budgets
+model Budget {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  categoryId String?  @map("category_id") // null means overall budget
+  name       String
+  amount     Decimal  @db.Decimal(10, 2)
+  period     String   // 'weekly', 'monthly', 'yearly'
+  startDate  DateTime @map("start_date")
+  endDate    DateTime @map("end_date")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([categoryId])
+  @@map("budgets")
+}
+
+// Recurring Expenses
+model RecurringExpense {
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
+  categoryId    String    @map("category_id")
+  amount        Decimal   @db.Decimal(10, 2)
+  description   String?   @db.Text
+  frequency     String    // 'daily', 'weekly', 'monthly', 'yearly'
+  startDate     DateTime  @map("start_date")
+  endDate       DateTime? @map("end_date")
+  lastGenerated DateTime? @map("last_generated")
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isActive])
+  @@map("recurring_expenses")
+}
+
