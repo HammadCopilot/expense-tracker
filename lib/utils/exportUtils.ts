@@ -56,7 +56,7 @@ export async function exportChartToPNG(
 ) {
   try {
     // Check if html2canvas is available (should be installed separately if needed)
-    //@ts-expect-error - html2canvas is an optional dependency
+    
     const html2canvas = (await import('html2canvas')).default
     
     const element = document.getElementById(elementId)
