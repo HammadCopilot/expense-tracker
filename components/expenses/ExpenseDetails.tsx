@@ -103,7 +103,7 @@ export function ExpenseDetails({ expense }: ExpenseDetailsProps) {
           )}
 
           {/* Tags */}
-          {expense.tags.length > 0 && (
+          {expense.tags?.length > 0 && (
             <div>
               <p className="text-sm font-medium text-muted-foreground mb-2">
                 Tags
