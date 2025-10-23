@@ -15,6 +15,7 @@
  * TC-ET-039: Download Uploaded Receipt
  */
 
+import '@testing-library/jest-dom'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
