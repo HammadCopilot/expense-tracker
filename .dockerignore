@@ -1,0 +1,75 @@
+# Dockerignore for Next.js Expense Tracker
+
+# Dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+pnpm-debug.log*
+.pnpm-store
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Testing
+coverage/
+.nyc_output/
+__tests__/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Documentation
+README.md
+docs/
+*.md
+show-and-tell.txt
+breif.md
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Misc
+.eslintcache
+.prettierignore
+*.log
+*.pid
+*.seed
+*.pid.lock
+.cache
+temp/
+tmp/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+prisma/migrations/
+
